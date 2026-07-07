@@ -1,0 +1,13 @@
+# Pyrefly configuration.
+# Only analyze this project's own source files.
+project-includes = [
+    "server.py",
+    "test_remote_mcp.py",
+]
+
+project-excludes = [
+    "**/.venv/**",
+    "**/venv/**",
+    "**/__pycache__/**",
+    "**/_pyrefly_virtual_/**",
+]
