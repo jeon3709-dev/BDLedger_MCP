@@ -55,14 +55,21 @@ PORT=8080
 python server.py stdio
 ```
 
-### 5. 원격/웹 실행 (SSE 방식)
-클라우드 플랫폼(예: Render, Cloudtype, Docker 등)에 배포하거나 웹 기반 클라이언트와 SSE(Server-Sent Events)로 통신할 때 사용합니다.
+### 5. 원격/웹 실행 (SSE 및 Streamable HTTP 방식)
+클라우드 플랫폼(예: Render, Cloudtype, Docker 등)에 배포하거나 웹 기반 클라이언트(Claude Custom Connector 등)와 통신할 때 사용합니다.
 
 ```bash
-# SSE 모드로 서버 시작
+# HTTP/SSE 모드로 서버 시작
 python server.py sse
 # 또는 Procfile을 통해 실행
 ```
+
+> **💡 Claude Custom Connector (원격 MCP) 등록 안내**  
+> Claude 커넥터(Connectors) 설정 등록 시 아래 URL 형식을 사용하시면 됩니다:
+> - **권장 (Streamable HTTP)**: `https://your-domain.cloudtype.app/mcp` (또는 기본 URL `https://your-domain.cloudtype.app/`)
+> - **호환 (SSE)**: `https://your-domain.cloudtype.app/sse`
+> 
+> *참고: 서버에 OAuth 미사용(no_auth_required) 처리 및 Accept 헤더 자동 보정 미들웨어가 내장되어 있어 별도의 OAuth 클라이언트 ID 설정 없이 연결됩니다.*
 
 ---
 

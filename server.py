@@ -652,18 +652,68 @@ if __name__ == "__main__":
     if not use_stdio:
         logger.info(f"Starting Architecture HUB Building Ledger MCP Server in HTTP transport mode...")
 
-        # Base app = Streamable HTTP transport (endpoint: /mcp)
-        app = mcp.streamable_http_app()
+        # Base apps
+        mcp_http_app = mcp.streamable_http_app()
+        mcp_sse_app = mcp.sse_app()
 
-        # Legacy SSE transport (/sse + /messages/)
+        from starlette.applications import Starlette
         from starlette.routing import Route
-        from starlette.responses import PlainTextResponse
-        app.router.routes.extend(mcp.sse_app().router.routes)
+        from starlette.responses import PlainTextResponse, JSONResponse
+
+        # OAuth Discovery endpoints returning 404 to indicate no OAuth authentication is required
+        async def _no_oauth(request):
+            return JSONResponse(
+                {"status": "no_auth_required", "message": "This MCP server does not require OAuth authentication."},
+                status_code=404
+            )
 
         # Health-check route
         async def _health(request):
             return PlainTextResponse("ok")
-        app.router.routes.append(Route("/", _health, methods=["GET"]))
+
+        routes = [
+            Route("/", _health, methods=["GET"]),
+            Route("/.well-known/oauth-authorization-server", _no_oauth, methods=["GET"]),
+            Route("/.well-known/oauth-protected-resource", _no_oauth, methods=["GET"]),
+            Route("/.well-known/mcp-configuration", _no_oauth, methods=["GET"]),
+        ]
+
+        app = Starlette(routes=routes, lifespan=mcp_http_app.router.lifespan_context)
+        app.router.routes.extend(mcp_http_app.router.routes)
+        app.router.routes.extend(mcp_sse_app.router.routes)
+
+        # Middleware to normalize Accept header and support POST to / as /mcp
+        class NormalizeAcceptHeaderMiddleware:
+            def __init__(self, app):
+                self.app = app
+            async def __call__(self, scope, receive, send):
+                if scope["type"] == "http":
+                    path = scope.get("path", "")
+                    method = scope.get("method", "")
+                    
+                    # If client POSTs to root /, rewrite path to /mcp so root works as MCP endpoint
+                    if path == "/" and method == "POST":
+                        scope["path"] = "/mcp"
+                        scope["raw_path"] = b"/mcp"
+                        path = "/mcp"
+                        
+                    if path in ["/mcp", "/sse", "/"] or path.startswith("/messages"):
+                        new_headers = []
+                        has_accept = False
+                        for k, v in scope.get("headers", []):
+                            if k.lower() == b"accept":
+                                has_accept = True
+                                accept_str = v.decode("utf-8", errors="ignore")
+                                if "text/event-stream" not in accept_str or "application/json" not in accept_str:
+                                    new_headers.append((b"accept", b"application/json, text/event-stream, */*"))
+                                else:
+                                    new_headers.append((k, v))
+                            else:
+                                new_headers.append((k, v))
+                        if not has_accept:
+                            new_headers.append((b"accept", b"application/json, text/event-stream, */*"))
+                        scope["headers"] = new_headers
+                await self.app(scope, receive, send)
 
         # Disable buffering middleware
         class DisableBufferingMiddleware:
@@ -680,8 +730,10 @@ if __name__ == "__main__":
                         headers.append((b"cache-control", b"no-cache, no-transform"))
                     await send(message)
                 await self.app(scope, receive, send_wrapper)
+
+        app.add_middleware(NormalizeAcceptHeaderMiddleware)
         app.add_middleware(DisableBufferingMiddleware)
-        
+
         # Permissive CORS middleware
         from starlette.middleware.cors import CORSMiddleware
         app.add_middleware(
@@ -690,10 +742,12 @@ if __name__ == "__main__":
             allow_credentials=False,
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=["mcp-session-id", "content-type", "authorization", "x-accel-buffering"],
         )
-        
+
         import uvicorn
         logger.info(f"Running uvicorn on 0.0.0.0:{mcp_port} with CORS and buffering disabled...")
         uvicorn.run(app, host="0.0.0.0", port=mcp_port)
     else:
         mcp.run()
+
