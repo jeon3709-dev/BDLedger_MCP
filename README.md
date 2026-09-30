@@ -1,3 +1,9 @@
+> [!IMPORTANT]
+> **이 저장소는 더 이상 유지보수하지 않습니다 (보관 처리).**
+> VWorld·건축물대장·실거래가 MCP 서버 3개가 **[jeon3709-dev/realestate-mcp](https://github.com/jeon3709-dev/realestate-mcp)** 로 통합되었습니다.
+> `br_*` 도구 10개는 이름·파라미터가 그대로이며, `br_health_check`는 통합 `health_check`로 합쳐졌습니다.
+> 도구 대응표와 커넥터 교체 절차는 [MIGRATION.md](https://github.com/jeon3709-dev/realestate-mcp/blob/main/MIGRATION.md)를 참고하십시오.
+
 # 건축물대장 정보 조회 MCP 서버 (BDLedger MCP Server)
 
 국토교통부 건축HUB **「건축물대장정보 서비스」**(공공데이터포털 `data.go.kr`)의 OpenAPI를 래핑하여, 다양한 건축물대장 정보를 조회할 수 있는 단일 파일 기반 파이썬 MCP(Model Context Protocol) 서버입니다.
